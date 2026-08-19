@@ -1,11 +1,10 @@
 # AI Infrastructure Evaluation Roadmap
 
+## Purpose
 
-## 1. Purpose
+This methodology measures how reliably AI agents perform real infrastructure work.
 
-This is a preliminary guide on how to evaluate how reliably AI agents perform real infrastructure work.
-
-Each experiment starts with a realistic infrastructure task. An executor agent performs the task in a live multi-node environment. A separate evaluator agent then inspects and tests the result.
+Each experiment starts with a realistic infrastructure task. An executor agent performs the task in a live multi-node environment. A separate evaluator agent then tests the resulting system.
 
 The evaluator looks at:
 
@@ -19,54 +18,75 @@ The same task is run several times.
 
 > One experiment = one infrastructure task + multiple independent executor/evaluator runs.
 
-The larger mission is to build evidence around a simple question:
+The larger mission is:
 
-> Can AI be trusted to operate real infrastructure?
+> **Can AI be trusted to operate real infrastructure?**
 
-## 2. Platform Context
+## Platform context
 
 Both agents receive platform instructions through MCP.
 
-The platform provides its current:
+The platform supplies its current documentation, supported images, node limits, runtime constraints, and other operational details.
 
-- documentation;
-- supported images;
-- maximum node count;
-- runtime or TTL constraints;
-- other operational limits.
+These values are runtime parameters. Each run records the values exposed by the platform.
 
-These values are runtime parameters. They are recorded for each experiment and run rather than embedded in the methodology.
+## Repository model
 
-## 3. Experimental Structure
+Generic behavior belongs in skills.
+
+Experiment-specific details belong in prompts.
 
 ```text
-Natural-language infrastructure task
-                |
-                v
-          Executor Agent
-                |
-                v
-        Multi-node environment
-                |
-                v
-     Structured Handoff Bundle
-                |
-                v
-          Evaluator Agent
-                |
-     +-------------------------+
-     | Functionality           |
-     | Security                |
-     | Operational residue     |
-     | Reboot / persistence    |
-     | Resilience / recovery   |
-     +-------------------------+
-                |
-                v
-       Evidence-backed verdict
+skills/
+  executor-capture.md
+  evaluator-core.md
+  evaluator-capture.md
+
+prompts/
+  executor-template.md
+  evaluator-prep-template.md
+  evaluator-runtime-template.md
+  post-verdict-analysis-template.md
+
+experiments/
+  EXP-YYYY-NNN-G/
+    executor-prompt.md
+    evaluator-prep-prompt.md
+    evaluator-runtime-prompt.md
 ```
 
-## 4. Roles
+## Experimental flow
+
+```text
+Natural-language task
+        |
+        v
+Executor Agent
++ executor-capture
+        |
+        v
+Live multi-node environment
+        |
+        v
+Structured Handoff Bundle
+        |
+        v
+Evaluator Agent
++ evaluator-core
++ evaluator-capture
+        |
+        v
+Functionality
+Security
+Operational residue
+Reboot / persistence
+Resilience / recovery
+        |
+        v
+Evidence-backed verdict
+```
+
+## Roles
 
 ### Executor
 
@@ -75,13 +95,13 @@ The executor is the system under test.
 It receives:
 
 - the natural-language task;
-- explicit user constraints;
-- access to the infrastructure platform through MCP;
-- the fixed handoff deadline for the run.
+- explicit constraints;
+- platform access through MCP;
+- the configured handoff point.
 
-The experiment harness does not coach the executor on infrastructure practice.
+The experiment harness gives the executor no infrastructure coaching.
 
-The executor runs with `executor-capture`, which records activity and creates the Structured Handoff Bundle.
+The `executor-capture` skill records observable activity and creates the Structured Handoff Bundle.
 
 ### Evaluator
 
@@ -91,20 +111,21 @@ It receives:
 
 - the original task;
 - explicit constraints;
-- the prepared evaluation plan;
+- a prepared experiment-specific test plan;
 - the Structured Handoff Bundle;
-- live access to the resulting environment;
-- evaluator skills.
+- live access to the environment;
+- `evaluator-core`;
+- `evaluator-capture`.
 
 During the initial verdict, executor identity, provider, prose explanation, reasoning, and final success claim stay hidden.
 
-### Human Experiment Owner
+### Human experiment owner
 
-The human defines the experiment, selects models, sets timing, reviews disputed results, interprets aggregate findings, and publishes the final analysis.
+The human defines the experiment, selects models, reviews disputed findings, interprets aggregate results, and publishes the analysis.
 
-Experimental data collection and aggregation are automated.
+Data collection and run aggregation are automated.
 
-## 5. Experiment and Run IDs
+## Experiment IDs
 
 Experiment:
 
@@ -112,7 +133,7 @@ Experiment:
 PF-YYYY-NNN-G
 ```
 
-Run:
+Runs:
 
 ```text
 PF-YYYY-NNN-G-R01
@@ -121,11 +142,11 @@ PF-YYYY-NNN-G-R03
 ...
 ```
 
-Every captured record includes the experiment ID, run ID, agent role, model, provider, model version, and timestamp.
+Every captured record includes the experiment ID, run ID, role, model, provider, model version, and timestamp.
 
-## 6. Define the Experiment
+## Defining an experiment
 
-Freeze before the first run:
+Freeze these values before the first run:
 
 - experiment ID;
 - exploration thesis;
@@ -133,11 +154,10 @@ Freeze before the first run:
 - explicit constraints;
 - executor model/provider/version;
 - evaluator model/provider/version;
-- evaluator skill versions;
+- skill versions;
 - number of runs;
-- runtime constraints exposed by the platform;
-- executor/evaluator handoff point;
-- evaluation rubric.
+- handoff point;
+- evaluation criteria.
 
 Example thesis:
 
@@ -147,45 +167,35 @@ Example task:
 
 > Configure secure SSH access across four heterogeneous Linux nodes using key-based authentication and a nonstandard port.
 
-The article title is chosen after the experiment is complete.
+The article title is chosen after the results are known.
 
-## 7. Timing
+## Evaluator preparation
 
-Evaluator preparation happens before execution starts.
+The evaluator plan is prepared before execution starts.
 
-Each experiment defines a fixed executor-to-evaluator handoff point based on the runtime available for that environment.
-
-Record:
-
-- platform runtime limit;
-- first node creation time;
-- executor handoff time;
-- remaining runtime at handoff;
-- evaluator completion time.
-
-The exact split can vary by experiment.
-
-The methodology stays unchanged if the platform runtime changes.
-
-## 8. Evaluator Preparation
-
-The evaluator prepares a compact role-based plan before execution.
-
-The plan covers:
+The experiment-specific evaluator preparation prompt defines:
 
 1. functional tests;
 2. negative and security tests;
-3. operational-residue inspection;
-4. relevant internal-state checks;
+3. operational-residue checks;
+4. internal-state checks;
 5. known test state to create before reboot where useful;
 6. reboot procedure;
-7. complete post-reboot retesting;
-8. resilience or failover testing where relevant;
+7. post-reboot retesting;
+8. resilience or failover tests where relevant;
 9. evidence required for each verdict.
 
-Tests receive stable IDs so the same check can be compared across phases.
+Tests receive stable IDs.
 
-Phases:
+Example:
+
+```text
+SSH-FUNC-001
+SSH-NEG-001
+SSH-SEC-001
+```
+
+Phases use the same IDs:
 
 ```text
 PRE_REBOOT
@@ -194,92 +204,86 @@ POST_FAILURE
 POST_RECOVERY
 ```
 
-## 9. Structured Handoff Bundle
+## Structured Handoff Bundle
 
-At handoff, `executor-capture` creates a machine-readable summary of the environment.
+At handoff, `executor-capture` produces a machine-readable summary.
 
-The evaluator uses it to avoid rediscovering information already known from the platform and instrumentation.
+The evaluator uses it to spend live-environment time on validation rather than rediscovery.
 
 The bundle contains:
 
 - run metadata;
-- runtime limit and remaining runtime;
+- runtime information exposed by the platform;
 - node inventory;
 - topology;
 - observed runtime state;
 - observed changes;
-- executor commands;
+- command history;
 - executor self-tests;
 - suspected temporary artifacts;
 - executor final visible response.
 
-## 10. Evaluation Sequence
+Executor self-tests are historical evidence. The evaluator still performs independent tests for material conclusions.
 
-### Step 1 — Read the Handoff Bundle
+## Evaluation sequence
 
-Map the prepared tests to the actual nodes, topology, changed configuration surfaces, self-tests, and suspected residue.
+1. Read the Structured Handoff Bundle.
+2. Map the prepared tests to the actual topology.
+3. Inspect operational residue before creating evaluator artifacts.
+4. Run functional tests.
+5. Run negative and security tests.
+6. Inspect relevant internal state.
+7. Create known test state where useful.
+8. Reboot every relevant node.
+9. Repeat the complete applicable evaluation.
+10. Run resilience or failover tests where relevant.
+11. Verify recovery and rejoining.
+12. Issue an evidence-backed verdict.
 
-### Step 2 — Inspect Operational Residue
+## Evaluation dimensions
 
-Inspect before creating evaluator artifacts.
+### Functionality
 
-Look for temporary files, abandoned scripts, unused users or keys, debug packages, temporary repositories, stale firewall rules, unused services or containers, exposed credentials, duplicate configuration fragments, backup files, and unnecessary listening ports.
+Test the requested behavior from another node whenever practical.
 
-Classify residue as:
+### Security
+
+Evaluate relevant exposure, authentication, authorization, firewalling, mandatory access controls, TLS, credential handling, permissions, privilege, and unnecessary services.
+
+### Persistence
+
+Reboot every relevant node and repeat the applicable functional and security tests.
+
+### Resilience
+
+Where the task involves clustering, replication, redundancy, failover, or high availability, inject a relevant failure and verify recovery.
+
+### Operational residue
+
+Inspect for unnecessary state left behind by implementation or troubleshooting.
+
+Examples:
+
+- temporary files;
+- abandoned scripts;
+- unused users or keys;
+- debug packages;
+- temporary repositories;
+- stale firewall rules;
+- unused services or containers;
+- exposed credentials;
+- duplicate configuration fragments;
+- backup files;
+- unnecessary listening ports.
+
+Residue classification:
 
 - None
 - Minor
 - Operational Risk
 - Security Risk
 
-### Step 3 — Functional Evaluation
-
-Test actual behavior from another node whenever practical.
-
-### Step 4 — Negative and Security Evaluation
-
-Attempt operations that should fail and inspect relevant security state.
-
-### Step 5 — Internal-State Inspection
-
-Use the Handoff Bundle to target inspection.
-
-### Step 6 — Create Known Test State
-
-Where useful, create state that can be checked after reboot or failure.
-
-## 11. Reboot and Persistence
-
-The evaluator reboots every relevant node.
-
-After reboot, repeat the complete applicable functional and security tests using the same test IDs.
-
-Capture:
-
-- reboot timing;
-- node return;
-- service recovery;
-- cluster membership;
-- data;
-- security state;
-- any manual intervention required.
-
-## 12. Resilience and Recovery
-
-When the task implies clustering, replication, redundancy, failover, or high availability, perform a relevant failure test.
-
-Capture:
-
-- failure time;
-- affected node/service;
-- failover time;
-- service availability;
-- data consistency;
-- security state;
-- recovery;
-- rejoin time.
-
-## 13. Verdicts
+## Verdicts
 
 Each run receives one overall verdict:
 
@@ -292,7 +296,7 @@ Each run receives one overall verdict:
 
 Operational residue receives its own classification.
 
-## 14. Repeated Runs
+## Repeated runs
 
 A published experiment should generally include at least five independent runs.
 
@@ -302,88 +306,93 @@ Keep constant:
 - explicit constraints;
 - executor model/version;
 - evaluator model/version;
-- evaluator skills;
+- skill versions;
 - handoff methodology;
 - evaluation methodology.
 
-Record platform runtime parameters for every run.
-
 Each run starts fresh.
 
-## 15. Run-to-Run Delta
+## Run-to-run delta
 
-Aggregate differences across runs in:
+Aggregate differences across:
 
 - outcome;
 - architecture;
+- image and distribution choices;
 - troubleshooting;
 - security;
 - persistence;
 - resilience;
-- change hygiene;
+- operational residue;
 - runtime usage;
-- time;
 - cost.
 
 For small samples, report counts such as `4 of 5`.
 
-## 16. Post-Verdict Trace Analysis
+## Post-verdict trace analysis
 
 After the evaluator freezes the blind verdict, reveal the executor trace.
 
-Analyze the executor approach, architecture, troubleshooting, failed hypotheses, retries, platform-blaming behavior, self-verification, security decisions, cleanup behavior, and disagreement with the evaluator.
+Analyze:
 
-Keep the original blind verdict unchanged.
+- implementation approach;
+- architecture choices;
+- troubleshooting path;
+- failed hypotheses;
+- retries;
+- platform-blaming behavior;
+- executor self-verification;
+- security decisions;
+- cleanup behavior;
+- executor/evaluator disagreement.
 
-## 17. Publication
+The original blind verdict stays preserved.
 
-Each published experiment should report:
+## Publication
+
+Each article should report:
 
 - experiment ID;
 - exploration thesis;
 - exact task;
 - executor model/version;
 - evaluator model/version;
-- evaluator skill versions;
+- skill versions;
 - number of runs;
 - platform runtime parameters;
-- images and topologies used;
-- handoff timing;
+- images and topologies;
 - executor self-assessment;
-- evaluator verdict;
+- evaluator verdicts;
 - reboot results;
 - resilience results;
 - security findings;
 - operational residue;
 - run-to-run delta;
-- costs;
+- time and cost;
 - limitations.
 
-The article headline comes from the strongest supported observation.
+The headline comes from the strongest supported observation.
 
-## 18. Future Brownfield Extension
+## Future brownfield work
 
-A later phase can introduce existing users, workloads, data, integrations, configuration drift, and hidden dependencies.
+A later phase can introduce existing users, workloads, data, integrations, configuration drift, and hidden dependencies. That phase adds preservation and regression analysis.
 
-That phase adds preservation and regression analysis to the evaluator.
+## Definition of done
 
-## Definition of Done
-
-- [ ] Exploration thesis frozen.
 - [ ] Natural-language task frozen.
-- [ ] Executor and evaluator model versions recorded.
-- [ ] Evaluator skill versions recorded.
-- [ ] Platform runtime constraints recorded.
+- [ ] Executor and evaluator versions recorded.
+- [ ] Skill versions recorded.
 - [ ] Evaluator plan prepared before execution.
-- [ ] Handoff point fixed.
-- [ ] Desired independent runs complete.
+- [ ] Handoff point defined.
+- [ ] Defined number of  runs completed.
 - [ ] Executor activity captured automatically.
 - [ ] Structured Handoff Bundle generated automatically.
+- [ ] Evaluator used the bundle.
 - [ ] Independent behavioral tests completed.
 - [ ] Operational residue evaluated.
-- [ ] Securoty impact evaluated.
+- [ ] Security impact evaluated.
 - [ ] Relevant nodes rebooted.
-- [ ] Complete applicable tests repeated after reboot.
+- [ ] Applicable tests repeated after reboot.
 - [ ] Resilience tested where relevant.
 - [ ] Every run received an evidence-backed verdict.
 - [ ] Executor/evaluator agreement calculated.
